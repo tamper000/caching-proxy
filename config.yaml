@@ -1,0 +1,12 @@
+server:
+  origin: https://httpbin.org/
+  # port: 1323
+  secret: pls_delete_cache_maboy
+
+redis:
+  enabled: true
+  port: 6379
+  addr: localhost
+  password:
+  db:
+  TTL: 5 # in minutes
