@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -17,11 +18,13 @@ type Proxy struct {
 	Redis      *cache.RedisClient
 	HttpClient *http.Client
 	server     *http.Server
+	Blacklist  []*regexp.Regexp
 }
 
 func NewProxy(config models.Config) *Proxy {
 	cfg := new(Proxy)
 	cfg.Config = config
+	cfg.Blacklist = config.RegexpList
 
 	if config.Redis.Enabled {
 		cfg.Redis = cache.NewCache(config.Redis)

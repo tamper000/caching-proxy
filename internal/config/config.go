@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/tamper000/caching-proxy/internal/models"
+	"github.com/tamper000/caching-proxy/utils"
 )
 
 func LoadConfig() models.Config {
@@ -37,12 +38,17 @@ func LoadConfig() models.Config {
 	// Redis section
 	redis := loadRedis()
 
+	// Regexp section
+	blacklist := viper.GetStringSlice("blacklist")
+	regexpList := utils.GenerateRegexp(blacklist)
+
 	// Loading values
 	return models.Config{
-		Origin: origin,
-		Port:   port,
-		Secret: secret,
-		Redis:  redis,
+		Origin:     origin,
+		Port:       port,
+		Secret:     secret,
+		Redis:      redis,
+		RegexpList: regexpList,
 	}
 }
 

@@ -10,3 +10,7 @@ redis:
   password:
   db:
   TTL: 5 # in minutes
+
+blacklist:
+  - /uuid
+  - /delay/(.+)

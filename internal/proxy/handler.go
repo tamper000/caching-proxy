@@ -16,13 +16,23 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.RequestURI
 	key := p.Config.Origin + ":" + method + ":" + path
 
-	if value, err := p.Redis.GetCache(key); err == nil {
-		buffer := bytes.NewBuffer(value)
-		reader := bufio.NewReader(buffer)
-		resp, err := http.ReadResponse(reader, nil)
-		if err == nil {
-			sendFinal(w, resp, "HIT")
-			return
+	var blacklisted bool
+	for _, re := range p.Blacklist {
+		if re.MatchString(path) {
+			blacklisted = true
+		}
+	}
+
+	// sorry for this tab spammin
+	if !blacklisted {
+		if value, err := p.Redis.GetCache(key); err == nil {
+			buffer := bytes.NewBuffer(value)
+			reader := bufio.NewReader(buffer)
+			resp, err := http.ReadResponse(reader, nil)
+			if err == nil {
+				sendFinal(w, resp, "HIT")
+				return
+			}
 		}
 	}
 
@@ -47,6 +57,11 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			fmt.Println("Error set cache:", err)
 		}
+	}
+
+	if blacklisted {
+		sendFinal(w, resp, "BYPASS")
+		return
 	}
 
 	sendFinal(w, resp, "MISS")
