@@ -88,6 +88,7 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 
 	if p.Config.Secret != secret {
 		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
 		return
 	}
 
@@ -102,4 +103,5 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }

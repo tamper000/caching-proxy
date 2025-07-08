@@ -44,7 +44,7 @@ func (p *Proxy) Start() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
-	r.Get("/clear", p.ClearHandler)
+	r.Post("/clear", p.ClearHandler)
 	r.HandleFunc("/*", p.ProxyHandler)
 
 	server := &http.Server{
