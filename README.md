@@ -58,7 +58,6 @@ server:
   secret: pls_delete_cache_maboy # Секрет для очистки кэша
 
 redis:
-  enabled: true                  # Включить Redis
   addr: localhost                # Адрес Redis
   port: 6379                     # Порт Redis
   password:                      # Пароль (если используется)
