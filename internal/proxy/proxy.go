@@ -23,12 +23,10 @@ type Proxy struct {
 
 func NewProxy(config models.Config) *Proxy {
 	cfg := new(Proxy)
+
 	cfg.Config = config
 	cfg.Blacklist = config.RegexpList
-
-	if config.Redis.Enabled {
-		cfg.Redis = cache.NewCache(config.Redis)
-	}
+	cfg.Redis = cache.NewCache(config.Redis)
 
 	cfg.HttpClient = &http.Client{
 		Timeout: 5 * time.Second,
@@ -50,7 +48,7 @@ func (p *Proxy) Start() {
 	server := &http.Server{
 		Addr:         ":" + p.Config.Port,
 		Handler:      r,
-		ReadTimeout:  time.Second * 3,
+		ReadTimeout:  time.Second * 10,
 		WriteTimeout: time.Second * 10,
 	}
 	p.server = server

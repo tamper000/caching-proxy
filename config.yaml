@@ -4,7 +4,6 @@ server:
   secret: pls_delete_cache_maboy
 
 redis:
-  enabled: true
   port: 6379
   addr: localhost
   password:

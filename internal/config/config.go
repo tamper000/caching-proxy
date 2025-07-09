@@ -64,7 +64,6 @@ func loadRedis() models.Redis {
 		Addr:     redis.GetString("server"),
 		Password: redis.GetString("password"),
 		DB:       redis.GetInt("db"),
-		Enabled:  redis.GetBool("enabled"),
 		TTL:      time.Duration(redis.GetInt("TTL")) * time.Minute,
 	}
 }

@@ -16,7 +16,6 @@ type Config struct {
 }
 
 type Redis struct {
-	Enabled  bool
 	Port     string
 	Addr     string
 	Password string
