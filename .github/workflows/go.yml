@@ -45,3 +45,4 @@ jobs:
         with:
           files: dist/caching-proxy
           generate_release_notes: true
+          tag_name: ${{ github.ref_name }}
