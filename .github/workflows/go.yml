@@ -1,0 +1,44 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Go
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24.4'
+
+    - name: Build
+      run: GOOS=linux GOARCH=amd64 go build -o caching-proxy ./cmd/main.go 
+
+    - name: Archive artifact
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: app
+        path: caching-proxy
+        retention-days: 1
+        
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: app
+          path: dist
+  
+      - name: Create release
+        uses: softprops/action-gh-release@v2.3.2
+        with:
+          files: dist/caching-proxy
