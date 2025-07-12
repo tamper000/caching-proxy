@@ -6,6 +6,8 @@ name: Go
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -42,3 +44,4 @@ jobs:
         uses: softprops/action-gh-release@v2.3.2
         with:
           files: dist/caching-proxy
+          generate_release_notes: true
