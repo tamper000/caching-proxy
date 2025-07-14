@@ -67,6 +67,10 @@ redis:
 blacklist:
   - /uuid                        # Эти пути не будут кэшироваться
   - /delay/(.+)                  # Поддерживает regexp
+
+logger:
+  level: DEBUG                    # Сейчас поддерживает только DEBUG и INFO
+  file: app.log
 ```
 
 ---
