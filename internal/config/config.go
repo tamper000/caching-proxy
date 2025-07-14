@@ -1,22 +1,24 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
 
+	internalErrors "github.com/tamper000/caching-proxy/internal/errors"
 	"github.com/tamper000/caching-proxy/internal/models"
-	"github.com/tamper000/caching-proxy/utils"
+	"github.com/tamper000/caching-proxy/internal/utils"
 )
 
-func LoadConfig() models.Config {
+func LoadConfig() (*models.Config, error) {
 	// Init
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic("no config file")
+		return nil, err
 	}
 
 	// Server section
@@ -25,12 +27,12 @@ func LoadConfig() models.Config {
 
 	origin := server.GetString("origin")
 	if origin == "" {
-		panic("no origin server")
+		return nil, internalErrors.ErrOriginServer
 	}
 
 	secret := server.GetString("secret")
 	if secret == "" {
-		panic("empty secret")
+		return nil, internalErrors.ErrSecret
 	}
 
 	port := server.GetString("port")
@@ -42,14 +44,18 @@ func LoadConfig() models.Config {
 	blacklist := viper.GetStringSlice("blacklist")
 	regexpList := utils.GenerateRegexp(blacklist)
 
+	// Logger section
+	logger := LoadLogger()
+
 	// Loading values
-	return models.Config{
+	return &models.Config{
 		Origin:     origin,
 		Port:       port,
 		Secret:     secret,
 		Redis:      redis,
 		RegexpList: regexpList,
-	}
+		Logger:     logger,
+	}, nil
 }
 
 func loadRedis() models.Redis {
@@ -65,5 +71,19 @@ func loadRedis() models.Redis {
 		Password: redis.GetString("password"),
 		DB:       redis.GetInt("db"),
 		TTL:      time.Duration(redis.GetInt("TTL")) * time.Minute,
+	}
+}
+
+func LoadLogger() models.Logger {
+	logger := viper.Sub("logger")
+	logger.SetDefault("level", "INFO")
+	logger.SetDefault("file", "app.log")
+
+	level := logger.GetString("level")
+	level = strings.ToUpper(level)
+
+	return models.Logger{
+		Level: level,
+		File:  logger.GetString("file"),
 	}
 }

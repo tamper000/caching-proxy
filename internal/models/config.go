@@ -13,6 +13,7 @@ type Config struct {
 	Secret     string
 	Redis      Redis
 	RegexpList []*regexp.Regexp
+	Logger     Logger
 }
 
 type Redis struct {
@@ -26,4 +27,9 @@ type Redis struct {
 type Proxy struct {
 	Config Config
 	Redis  *redis.Client
+}
+
+type Logger struct {
+	Level string
+	File  string
 }

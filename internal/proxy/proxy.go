@@ -10,23 +10,24 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/tamper000/caching-proxy/internal/cache"
+	"github.com/tamper000/caching-proxy/internal/logger"
 	"github.com/tamper000/caching-proxy/internal/models"
 )
 
 type Proxy struct {
-	Config     models.Config
+	Config     *models.Config
 	Redis      *cache.RedisClient
 	HttpClient *http.Client
 	server     *http.Server
 	Blacklist  []*regexp.Regexp
 }
 
-func NewProxy(config models.Config) *Proxy {
+func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
 	cfg := new(Proxy)
 
 	cfg.Config = config
 	cfg.Blacklist = config.RegexpList
-	cfg.Redis = cache.NewCache(config.Redis)
+	cfg.Redis = redis
 
 	cfg.HttpClient = &http.Client{
 		Timeout: 5 * time.Second,
@@ -35,10 +36,10 @@ func NewProxy(config models.Config) *Proxy {
 			IdleConnTimeout:     30 * time.Second,
 		},
 	}
-	return cfg
+	return cfg, nil
 }
 
-func (p *Proxy) Start() {
+func (p *Proxy) Start() error {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
@@ -53,7 +54,7 @@ func (p *Proxy) Start() {
 	}
 	p.server = server
 
-	server.ListenAndServe()
+	return server.ListenAndServe()
 }
 
 func (p *Proxy) Stop() {
@@ -61,5 +62,10 @@ func (p *Proxy) Stop() {
 	defer cancel()
 
 	p.server.Shutdown(ctx)
+	p.StopOther()
+}
+
+func (p *Proxy) StopOther() {
 	p.Redis.Client.Close()
+	logger.CloseFile()
 }
