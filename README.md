@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[English](README-en.md)
+
 **Caching HTTP proxy server written in Go**  
 Простой кеширующий прокси-сервер, который перенаправляет запросы на удалённый сервер и кэширует результат.
 
