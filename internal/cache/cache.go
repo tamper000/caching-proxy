@@ -14,7 +14,7 @@ type RedisClient struct {
 	TTL    time.Duration
 }
 
-func NewCache(config models.Redis) *RedisClient {
+func NewCache(config models.Redis) (*RedisClient, error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     config.Addr + ":" + config.Port,
 		Password: config.Password,
@@ -25,10 +25,10 @@ func NewCache(config models.Redis) *RedisClient {
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		panic("redis error: " + err.Error())
+		return nil, err
 	}
 
-	return &RedisClient{Client: rdb, TTL: config.TTL}
+	return &RedisClient{Client: rdb, TTL: config.TTL}, nil
 }
 
 func (r RedisClient) GetCache(key string) ([]byte, error) {

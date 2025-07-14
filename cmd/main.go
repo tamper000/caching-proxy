@@ -1,26 +1,63 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/tamper000/caching-proxy/internal/cache"
 	"github.com/tamper000/caching-proxy/internal/config"
+	"github.com/tamper000/caching-proxy/internal/logger"
 	"github.com/tamper000/caching-proxy/internal/proxy"
 )
 
 func main() {
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		slog.Error("Failed to load config", "error", err)
+		os.Exit(1)
+	}
 
-	server := proxy.NewProxy(cfg)
-	go server.Start()
+	logger.NewLogger(cfg.Logger)
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Println("Shutting down server...")
+	slog.Debug("Initializing Redis")
+	redis, err := cache.NewCache(cfg.Redis)
+	if err != nil {
+		slog.Error("Failed to connect redis", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("The redis has been successfully initialized")
 
-	server.Stop()
-	log.Println("Server exiting")
+	slog.Debug("Initializing proxy server")
+	server, err := proxy.NewProxy(cfg, redis)
+	if err != nil {
+		slog.Error("Failed to connect redis", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Proxy server initialized", "port", cfg.Port, "origin", cfg.Origin)
+
+	serverErrors := make(chan error, 1)
+	go func() {
+		slog.Debug("Proxy server startup", "port", cfg.Port, "origin", cfg.Origin)
+		err := server.Start()
+		serverErrors <- err
+	}()
+
+	select {
+	case err := <-serverErrors:
+		slog.Error("Error starting HTTP server", "error", err)
+		server.StopOther()
+	case sig := <-signalChan():
+		slog.Info("A signal was received", "signal", sig.String())
+		server.Stop()
+	}
+
+	os.Exit(1)
+}
+
+func signalChan() chan os.Signal {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	return sigChan
 }

@@ -7,9 +7,13 @@ redis:
   port: 6379
   addr: localhost
   password:
-  db:
+  db: 5
   TTL: 5 # in minutes
 
 blacklist:
   - /uuid
   - /delay/(.+)
+  
+logger:
+  level: DEBUG # now support only INFO and DEBUG
+  file: app.log
