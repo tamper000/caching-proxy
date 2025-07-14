@@ -49,7 +49,7 @@ func main() {
 		slog.Error("Error starting HTTP server", "error", err)
 		server.StopOther()
 	case sig := <-signalChan():
-		slog.Error("A signal was received", "signal", sig.String())
+		slog.Info("A signal was received", "signal", sig.String())
 		server.Stop()
 	}
 

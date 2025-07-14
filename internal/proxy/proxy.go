@@ -41,7 +41,10 @@ func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
 
 func (p *Proxy) Start() error {
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.CleanPath)
 
 	r.Post("/clear", p.ClearHandler)
 	r.HandleFunc("/*", p.ProxyHandler)
