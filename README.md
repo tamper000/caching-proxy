@@ -4,7 +4,7 @@
 
 [English](README-en.md)
 
-**Caching HTTP proxy server written in Go**  
+**Caching HTTP proxy server written in Go**
 Простой кеширующий прокси-сервер, который перенаправляет запросы на удалённый сервер и кэширует результат.
 
 > Идеально подходит для уменьшения нагрузки на внешние API путём кэширования ответов с возможностью гибкой настройки через YAML-конфигурацию.
@@ -71,7 +71,7 @@ blacklist:
   - /delay/(.+)                  # Поддерживает regexp
 
 logger:
-  level: DEBUG                    # Сейчас поддерживает только DEBUG и INFO
+  level: DEBUG                    # Сейчас поддерживает только DEBUG, INFO, ERROR
   file: app.log
 ```
 

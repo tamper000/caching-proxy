@@ -19,6 +19,8 @@ func NewLogger(config models.Logger) {
 		logLevel = slog.LevelInfo
 	case "DEBUG":
 		logLevel = slog.LevelDebug
+	case "ERROR":
+		logLevel = slog.LevelError
 	}
 
 	logFile, err := os.OpenFile(config.File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)

@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Caching HTTP proxy server written in Go**  
+**Caching HTTP proxy server written in Go**
 A simple caching proxy server that redirects requests to a remote server and caches the results.
 
 > Perfectly suitable for reducing the load on external APIs by caching responses with flexible configuration via YAML.
@@ -69,7 +69,7 @@ blacklist:
   - /delay/(.+)                   # Supports regex
 
 logger:
-  level: DEBUG                     # Currently supports only DEBUG and INFO
+  level: DEBUG                     # Currently supports only DEBUG, INFO, ERROR
   file: app.log
 ```
 
