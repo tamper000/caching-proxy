@@ -13,7 +13,7 @@ redis:
 blacklist:
   - /uuid
   - /delay/(.+)
-  
+
 logger:
-  level: DEBUG # now support only INFO and DEBUG
-  file: app.log
+  level: DEBUG # INFO, DEBUG, ERROR
+  file: app.log # File name or blank line for stdout

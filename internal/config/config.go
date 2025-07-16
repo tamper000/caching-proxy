@@ -62,12 +62,12 @@ func loadRedis() models.Redis {
 	redis := viper.Sub("redis")
 	redis.SetDefault("port", "6379")
 	redis.SetDefault("db", "0")
-	redis.SetDefault("server", "localhost")
-	redis.SetDefault("enabled", false)
+	redis.SetDefault("addr", "localhost")
+	redis.SetDefault("TTL", 5)
 
 	return models.Redis{
 		Port:     redis.GetString("port"),
-		Addr:     redis.GetString("server"),
+		Addr:     redis.GetString("addr"),
 		Password: redis.GetString("password"),
 		DB:       redis.GetInt("db"),
 		TTL:      time.Duration(redis.GetInt("TTL")) * time.Minute,
@@ -77,7 +77,7 @@ func loadRedis() models.Redis {
 func LoadLogger() models.Logger {
 	logger := viper.Sub("logger")
 	logger.SetDefault("level", "INFO")
-	logger.SetDefault("file", "app.log")
+	// logger.SetDefault("file", "app.log")
 
 	level := logger.GetString("level")
 	level = strings.ToUpper(level)
