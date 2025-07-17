@@ -98,7 +98,7 @@ curl http://localhost:8080/ip
 Для очистки кэша отправь POST-запрос с секретным ключом:
 
 ```bash
-curl -X POST http://localhost:8080/clear?secret=pls_delete_cache_maboy
+curl -H "Authorization: Bearer pls_delete_cache_maboy" -X POST http://localhost:8080/clear
 ```
 
 ---

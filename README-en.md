@@ -96,7 +96,7 @@ curl http://localhost:8080/ip
 To clear the cache, send a POST request with the secret key:
 
 ```bash
-curl -X POST http://localhost:8080/clear?secret=pls_delete_cache_maboy
+curl -H "Authorization: Bearer pls_delete_cache_maboy" -X POST http://localhost:8080/clear
 ```
 
 ---

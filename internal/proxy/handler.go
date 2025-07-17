@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -117,8 +118,17 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 	logger := slog.With("request_id", requestID)
 
 	logger.Info("New incoming request to clear cache")
-	values := r.URL.Query()
-	secret := values.Get("secret")
+	// values := r.URL.Query()
+	// secret := values.Get("secret")
+	authHeader := r.Header.Get("Authorization")
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		logger.Error("Authentication failure")
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
+		return
+	}
+	secret := parts[1]
 
 	if p.Config.Secret != secret {
 		logger.Error("Authentication failure")
