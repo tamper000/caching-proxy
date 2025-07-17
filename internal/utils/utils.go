@@ -4,6 +4,9 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"strings"
+
+	"github.com/tamper000/caching-proxy/internal/errors"
 )
 
 func GenerateRegexp(list []string) []*regexp.Regexp {
@@ -19,4 +22,14 @@ func GenerateRegexp(list []string) []*regexp.Regexp {
 	}
 
 	return result
+}
+
+func CheckBearer(header string) (string, error) {
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		return "", errors.ErrBearerAuth
+	}
+	secret := parts[1]
+
+	return secret, nil
 }

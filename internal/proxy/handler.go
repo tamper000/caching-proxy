@@ -8,11 +8,11 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/redis/go-redis/v9"
+	"github.com/tamper000/caching-proxy/internal/utils"
 )
 
 func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -118,19 +118,11 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 	logger := slog.With("request_id", requestID)
 
 	logger.Info("New incoming request to clear cache")
-	// values := r.URL.Query()
-	// secret := values.Get("secret")
-	authHeader := r.Header.Get("Authorization")
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		logger.Error("Authentication failure")
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
-		return
-	}
-	secret := parts[1]
 
-	if p.Config.Secret != secret {
+	authHeader := r.Header.Get("Authorization")
+	secret, err := utils.CheckBearer(authHeader)
+
+	if err != nil || p.Config.Secret != secret {
 		logger.Error("Authentication failure")
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
@@ -140,8 +132,7 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	err := p.Redis.Client.FlushDB(ctx).Err()
-	if err != nil {
+	if err := p.Redis.Client.FlushDB(ctx).Err(); err != nil {
 		logger.Error("Unsuccessful clearing of cache")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
