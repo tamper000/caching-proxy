@@ -77,7 +77,6 @@ func loadRedis() models.Redis {
 func LoadLogger() models.Logger {
 	logger := viper.Sub("logger")
 	logger.SetDefault("level", "INFO")
-	// logger.SetDefault("file", "app.log")
 
 	level := logger.GetString("level")
 	level = strings.ToUpper(level)

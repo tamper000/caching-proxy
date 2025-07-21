@@ -57,40 +57,60 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	logger.Debug("Initializing request to origin")
-	req, err := http.NewRequest(method, p.Config.Origin+path, r.Body)
-	if err != nil {
-		logger.Error("Error forward request", "error", err)
-		http.Error(w, "Error forward request", http.StatusInternalServerError)
+	v, err, _ := p.group.Do(key, func() (interface{}, error) {
+		logger.Debug("Initializing request to origin")
+		req, err := http.NewRequest(method, p.Config.Origin+path, r.Body)
+		if err != nil {
+			logger.Error("Error forward request", "error", err)
+			// http.Error(w, "Error forward request", http.StatusInternalServerError)
+			return nil, err
+		}
+		for key, value := range r.Header {
+			req.Header.Set(key, value[0])
+		}
+
+		logger.Debug("Send request to origin")
+		resp, err := p.HttpClient.Do(req)
+		if err != nil {
+			logger.Error("Error reading response", "error", err)
+			// http.Error(w, "Error reading response", http.StatusInternalServerError)
+			return nil, err
+		}
+
+		// return resp, nil
+		respBytes, err := httputil.DumpResponse(resp, true)
+		if blacklisted {
+			return respBytes, err
+		}
+
+		if err == nil {
+			err := p.Redis.SetCache(key, respBytes)
+			if err != nil {
+				logger.Error("Set cache error", "error", err)
+			} else {
+				logger.Debug("Successfully setting a value in redis", "key", key)
+			}
+		} else {
+			logger.Error("Failed dump response", "error", err)
+		}
+
+		return respBytes, err
+	})
+
+	respBytes, ok := v.([]byte)
+
+	if !ok || err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
-	}
-	for key, value := range r.Header {
-		req.Header.Set(key, value[0])
 	}
 
-	logger.Debug("Send request to origin")
-	resp, err := p.HttpClient.Do(req)
-	if err != nil {
-		logger.Error("Error reading response", "error", err)
-		http.Error(w, "Error reading response", http.StatusInternalServerError)
-		return
-	}
+	buffer := bytes.NewBuffer(respBytes)
+	reader := bufio.NewReader(buffer)
+	resp, err := http.ReadResponse(reader, nil)
 
 	if blacklisted {
 		sendFinal(w, resp, "BYPASS", logger)
 		return
-	}
-
-	respBytes, err := httputil.DumpResponse(resp, true)
-	if err == nil {
-		err := p.Redis.SetCache(key, respBytes)
-		if err != nil {
-			logger.Error("Set cache error", "error", err)
-		} else {
-			logger.Debug("Successfully setting a value in redis", "key", key)
-		}
-	} else {
-		logger.Error("Failed dump response", "error", err)
 	}
 
 	sendFinal(w, resp, "MISS", logger)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/tamper000/caching-proxy/internal/cache"
 	"github.com/tamper000/caching-proxy/internal/logger"
@@ -20,6 +21,7 @@ type Proxy struct {
 	HttpClient *http.Client
 	server     *http.Server
 	Blacklist  []*regexp.Regexp
+	group      singleflight.Group
 }
 
 func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
@@ -30,7 +32,7 @@ func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
 	cfg.Redis = redis
 
 	cfg.HttpClient = &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 100,
 			IdleConnTimeout:     30 * time.Second,
