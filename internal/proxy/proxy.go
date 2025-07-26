@@ -32,7 +32,7 @@ func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
 	cfg.Redis = redis
 
 	cfg.HttpClient = &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: time.Duration(config.Timeout) * time.Second,
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 100,
 			IdleConnTimeout:     30 * time.Second,

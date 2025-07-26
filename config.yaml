@@ -2,6 +2,7 @@ server:
   origin: https://httpbin.org/
   # port: 1323
   secret: pls_delete_cache_maboy
+  timeout: 10 # in seconds
 
 redis:
   port: 6379

@@ -24,6 +24,7 @@ func LoadConfig() (*models.Config, error) {
 	// Server section
 	server := viper.Sub("server")
 	server.SetDefault("port", "8080")
+	server.SetDefault("timeout", 10)
 
 	origin := server.GetString("origin")
 	if origin == "" {
@@ -36,6 +37,7 @@ func LoadConfig() (*models.Config, error) {
 	}
 
 	port := server.GetString("port")
+	timeout := server.GetInt("timeout")
 
 	// Redis section
 	redis := loadRedis()
@@ -52,6 +54,7 @@ func LoadConfig() (*models.Config, error) {
 		Origin:     origin,
 		Port:       port,
 		Secret:     secret,
+		Timeout:    timeout,
 		Redis:      redis,
 		RegexpList: regexpList,
 		Logger:     logger,

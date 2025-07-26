@@ -11,6 +11,7 @@ type Config struct {
 	Origin     string
 	Port       string
 	Secret     string
+	Timeout    int
 	Redis      Redis
 	RegexpList []*regexp.Regexp
 	Logger     Logger
