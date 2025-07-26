@@ -49,6 +49,9 @@ func LoadConfig() (*models.Config, error) {
 	// Logger section
 	logger := LoadLogger()
 
+	// RateLimit section
+	ratelimit := loadRateLimit()
+
 	// Loading values
 	return &models.Config{
 		Origin:     origin,
@@ -58,7 +61,19 @@ func LoadConfig() (*models.Config, error) {
 		Redis:      redis,
 		RegexpList: regexpList,
 		Logger:     logger,
+		RateLimit:  ratelimit,
 	}, nil
+}
+
+func loadRateLimit() models.RateLimit {
+	ratelimit := viper.Sub("server.ratelimit")
+	ratelimit.SetDefault("rate", 20)
+	ratelimit.SetDefault("duration", 60)
+
+	return models.RateLimit{
+		Rate:     ratelimit.GetInt("rate"),
+		Duration: ratelimit.GetDuration("duration") * time.Second,
+	}
 }
 
 func loadRedis() models.Redis {

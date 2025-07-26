@@ -13,6 +13,7 @@ import (
 	"github.com/tamper000/caching-proxy/internal/cache"
 	"github.com/tamper000/caching-proxy/internal/logger"
 	"github.com/tamper000/caching-proxy/internal/models"
+	ratelimit "github.com/tamper000/rate-limit-redis"
 )
 
 type Proxy struct {
@@ -22,6 +23,7 @@ type Proxy struct {
 	server     *http.Server
 	Blacklist  []*regexp.Regexp
 	group      singleflight.Group
+	Limiter    *ratelimit.Limiter
 }
 
 func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
@@ -30,6 +32,12 @@ func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
 	cfg.Config = config
 	cfg.Blacklist = config.RegexpList
 	cfg.Redis = redis
+
+	cfg.Limiter = ratelimit.NewLimiter(ratelimit.Config{
+		RedisClient: redis.Client,
+		MaxRequests: config.RateLimit.Rate,
+		Duration:    config.RateLimit.Duration,
+	})
 
 	cfg.HttpClient = &http.Client{
 		Timeout: time.Duration(config.Timeout) * time.Second,
@@ -47,6 +55,7 @@ func (p *Proxy) Start() error {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.CleanPath)
+	r.Use(p.Limiter.MiddlewareWithSlog)
 
 	r.Post("/clear", p.ClearHandler)
 	r.HandleFunc("/*", p.ProxyHandler)
