@@ -24,6 +24,7 @@ func LoadConfig() (*models.Config, error) {
 	// Server section
 	server := viper.Sub("server")
 	server.SetDefault("port", "8080")
+	server.SetDefault("timeout", 10)
 
 	origin := server.GetString("origin")
 	if origin == "" {
@@ -36,6 +37,7 @@ func LoadConfig() (*models.Config, error) {
 	}
 
 	port := server.GetString("port")
+	timeout := server.GetInt("timeout")
 
 	// Redis section
 	redis := loadRedis()
@@ -47,15 +49,31 @@ func LoadConfig() (*models.Config, error) {
 	// Logger section
 	logger := LoadLogger()
 
+	// RateLimit section
+	ratelimit := loadRateLimit()
+
 	// Loading values
 	return &models.Config{
 		Origin:     origin,
 		Port:       port,
 		Secret:     secret,
+		Timeout:    timeout,
 		Redis:      redis,
 		RegexpList: regexpList,
 		Logger:     logger,
+		RateLimit:  ratelimit,
 	}, nil
+}
+
+func loadRateLimit() models.RateLimit {
+	ratelimit := viper.Sub("server.ratelimit")
+	ratelimit.SetDefault("rate", 20)
+	ratelimit.SetDefault("duration", 60)
+
+	return models.RateLimit{
+		Rate:     ratelimit.GetInt("rate"),
+		Duration: ratelimit.GetDuration("duration") * time.Second,
+	}
 }
 
 func loadRedis() models.Redis {
@@ -77,7 +95,6 @@ func loadRedis() models.Redis {
 func LoadLogger() models.Logger {
 	logger := viper.Sub("logger")
 	logger.SetDefault("level", "INFO")
-	// logger.SetDefault("file", "app.log")
 
 	level := logger.GetString("level")
 	level = strings.ToUpper(level)

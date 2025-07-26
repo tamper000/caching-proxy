@@ -6,6 +6,8 @@ require (
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/spf13/viper v1.20.1
+	github.com/tamper000/rate-limit-redis v0.1.0
+	golang.org/x/sync v0.16.0
 )
 
 require (

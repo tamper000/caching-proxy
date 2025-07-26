@@ -8,10 +8,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/tamper000/caching-proxy/internal/cache"
 	"github.com/tamper000/caching-proxy/internal/logger"
 	"github.com/tamper000/caching-proxy/internal/models"
+	ratelimit "github.com/tamper000/rate-limit-redis"
 )
 
 type Proxy struct {
@@ -20,6 +22,8 @@ type Proxy struct {
 	HttpClient *http.Client
 	server     *http.Server
 	Blacklist  []*regexp.Regexp
+	group      singleflight.Group
+	Limiter    *ratelimit.Limiter
 }
 
 func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
@@ -29,8 +33,14 @@ func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
 	cfg.Blacklist = config.RegexpList
 	cfg.Redis = redis
 
+	cfg.Limiter = ratelimit.NewLimiter(ratelimit.Config{
+		RedisClient: redis.Client,
+		MaxRequests: config.RateLimit.Rate,
+		Duration:    config.RateLimit.Duration,
+	})
+
 	cfg.HttpClient = &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: time.Duration(config.Timeout) * time.Second,
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 100,
 			IdleConnTimeout:     30 * time.Second,
@@ -45,6 +55,7 @@ func (p *Proxy) Start() error {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.CleanPath)
+	r.Use(p.Limiter.MiddlewareWithSlog)
 
 	r.Post("/clear", p.ClearHandler)
 	r.HandleFunc("/*", p.ProxyHandler)

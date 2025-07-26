@@ -11,9 +11,16 @@ type Config struct {
 	Origin     string
 	Port       string
 	Secret     string
+	Timeout    int
 	Redis      Redis
 	RegexpList []*regexp.Regexp
 	Logger     Logger
+	RateLimit  RateLimit
+}
+
+type RateLimit struct {
+	Rate     int
+	Duration time.Duration
 }
 
 type Redis struct {
