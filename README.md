@@ -1,6 +1,6 @@
 # 🧠 Caching Proxy
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [English](README-en.md)
 
@@ -42,7 +42,15 @@ docker build -t caching-proxy .
 Запусти контейнер:
 
 ```bash
-docker run -p 8080:8080 -v $(pwd)/config.yaml:/app/config.yaml caching-proxy
+docker run -p 8080:8080 -v $(pwd)/config.yaml:/app/config.yaml -v $(pwd)/app.log:/app/app.log caching-proxy
+```
+
+### 3. Запуск через Docker Compose
+
+Вы можете использовать пример `docker-compose` из этого репозитория:
+
+```bash
+docker-compose up --build
 ```
 
 ---
@@ -55,12 +63,16 @@ docker run -p 8080:8080 -v $(pwd)/config.yaml:/app/config.yaml caching-proxy
 
 ```yaml
 server:
-  origin: https://httpbin.org/   # Базовый URL, куда будут перенаправляться запросы
-  # port: 1323                   # Порт (по умолчанию: 8080)
-  secret: pls_delete_cache_maboy # Секрет для очистки кэша
+  origin: https://httpbin.org/ # Оригинальный URL
+  # port: 1323
+  secret: pls_delete_cache_maboy # Секрет для очистки кеша
+  timeout: 10 # Таймаут до origin. В секундах
+  ratelimit: # RateLimit осуществляется по IP
+    rate: 20
+    duration: 60 # в секундах
 
 redis:
-  addr: localhost                # Адрес Redis
+  addr: redis                    # Адрес Redis
   port: 6379                     # Порт Redis
   password:                      # Пароль (если используется)
   db:                            # Номер базы данных
@@ -71,8 +83,8 @@ blacklist:
   - /delay/(.+)                  # Поддерживает regexp
 
 logger:
-  level: DEBUG                    # Сейчас поддерживает только DEBUG, INFO, ERROR
-  file: app.log
+  level: DEBUG                   # Сейчас поддерживает только DEBUG, INFO, ERROR
+  file: app.log                  # Оставьте пустым для вывода в stdout
 ```
 
 ---
