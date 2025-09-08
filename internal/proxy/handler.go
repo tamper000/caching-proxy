@@ -65,9 +65,7 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 			// http.Error(w, "Error forward request", http.StatusInternalServerError)
 			return nil, err
 		}
-		for key, value := range r.Header {
-			req.Header.Set(key, value[0])
-		}
+		safeSetHeaders(req, r.Header)
 
 		logger.Debug("Send request to origin")
 		resp, err := p.HttpClient.Do(req)
@@ -76,6 +74,7 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 			// http.Error(w, "Error reading response", http.StatusInternalServerError)
 			return nil, err
 		}
+		defer resp.Body.Close()
 
 		// return resp, nil
 		respBytes, err := httputil.DumpResponse(resp, true)
@@ -107,6 +106,12 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	buffer := bytes.NewBuffer(respBytes)
 	reader := bufio.NewReader(buffer)
 	resp, err := http.ReadResponse(reader, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	defer resp.Body.Close()
 
 	if blacklisted {
 		sendFinal(w, resp, "BYPASS", logger)
@@ -162,4 +167,16 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Successfully clearing the cache")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(http.StatusText(http.StatusOK)))
+}
+
+func (p *Proxy) HealthHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	if status := p.Redis.Client.Ping(ctx); status.Err() != nil {
+		w.WriteHeader(503)
+		return
+	}
+
+	w.WriteHeader(200)
 }

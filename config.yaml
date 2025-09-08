@@ -9,7 +9,7 @@ server:
 
 redis:
   port: 6379
-  addr: redis
+  addr: localhost
   password:
   db: 5
   TTL: 5 # in minutes
@@ -20,4 +20,4 @@ blacklist:
 
 logger:
   level: DEBUG # INFO, DEBUG, ERROR
-  file: app.log # File name or blank line for stdout
+  file: # File name or blank line for stdout
