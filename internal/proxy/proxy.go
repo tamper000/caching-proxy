@@ -57,8 +57,9 @@ func (p *Proxy) Start() error {
 	r.Use(middleware.CleanPath)
 	r.Use(p.Limiter.MiddlewareWithSlog)
 
+	r.Get("/health", p.HealthHandler)
 	r.Post("/clear", p.ClearHandler)
-	r.HandleFunc("/*", p.ProxyHandler)
+	r.Get("/*", p.ProxyHandler)
 
 	server := &http.Server{
 		Addr:         ":" + p.Config.Port,
