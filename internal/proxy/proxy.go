@@ -26,7 +26,7 @@ type Proxy struct {
 	Limiter    *ratelimit.Limiter
 }
 
-func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
+func NewProxy(config *models.Config, redis *cache.RedisClient) *Proxy {
 	cfg := new(Proxy)
 
 	cfg.Config = config
@@ -46,7 +46,7 @@ func NewProxy(config *models.Config, redis *cache.RedisClient) (*Proxy, error) {
 			IdleConnTimeout:     30 * time.Second,
 		},
 	}
-	return cfg, nil
+	return cfg
 }
 
 func (p *Proxy) Start() error {

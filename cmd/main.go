@@ -30,11 +30,7 @@ func main() {
 	slog.Info("The redis has been successfully initialized")
 
 	slog.Debug("Initializing proxy server")
-	server, err := proxy.NewProxy(cfg, redis)
-	if err != nil {
-		slog.Error("Failed to connect redis", "error", err)
-		os.Exit(1)
-	}
+	server := proxy.NewProxy(cfg, redis)
 	slog.Info("Proxy server initialized", "port", cfg.Port, "origin", cfg.Origin)
 
 	serverErrors := make(chan error, 1)
