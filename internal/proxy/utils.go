@@ -3,6 +3,7 @@ package proxy
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -17,6 +18,7 @@ var deleteHeadersMap = map[string]bool{
 	"Transfer-Encoding":   true,
 	"Upgrade":             true,
 	"Via":                 true,
+	"Content-Length":      true,
 }
 
 func safeSetHeaders(req *http.Request, headers http.Header) {
@@ -44,4 +46,12 @@ func getRequestLogger(r *http.Request) *slog.Logger {
 		"method", r.Method,
 		"path", r.RequestURI,
 	)
+}
+
+func validatePath(path string) bool {
+	if strings.Contains(path, "..") || strings.Contains(path, "//") {
+		return false
+	}
+
+	return true
 }
