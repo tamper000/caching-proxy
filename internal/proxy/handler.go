@@ -14,8 +14,11 @@ import (
 )
 
 const (
-	RedisPingTimeout  = time.Second * 2
-	RedisFlushTimeout = time.Second * 5
+	redisPingTimeout  = time.Second * 2
+	redisFlushTimeout = time.Second * 5
+
+	maxRequestBodySize  = 8<<20 + 1
+	maxResponseBodySize = 15<<20 + 1
 )
 
 const (
@@ -25,7 +28,14 @@ const (
 )
 
 func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
+
 	path := r.RequestURI
+	if !validatePath(path) {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
 	key := p.Config.Origin + ":" + r.Method + ":" + path
 	logger := getRequestLogger(r)
 	logger.Info("New incoming requst")
@@ -64,7 +74,19 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v, err, _ := p.group.Do(key, func() (any, error) {
-		return p.fetchFromOrigin(r, path, logger)
+		cache, err := p.fetchFromOrigin(r, path, logger)
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.Redis.SetCache(key, cache)
+		if err != nil {
+			logger.Error("Set cache error", "error", err)
+		} else {
+			logger.Debug("Successfully setting a value in redis", "key", key)
+		}
+
+		return cache, nil
 	})
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -75,13 +97,6 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
-	}
-
-	err = p.Redis.SetCache(key, cache)
-	if err != nil {
-		logger.Error("Set cache error", "error", err)
-	} else {
-		logger.Debug("Successfully setting a value in redis", "key", key)
 	}
 
 	sendFinal(w, cache, cacheMiss, logger)
@@ -106,7 +121,7 @@ func (p *Proxy) fetchFromOrigin(r *http.Request, path string, logger *slog.Logge
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +164,7 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), RedisFlushTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), redisFlushTimeout)
 	defer cancel()
 
 	if err := p.Redis.Client.FlushDB(ctx).Err(); err != nil {
@@ -165,7 +180,7 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Proxy) HealthHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(context.Background(), RedisPingTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), redisPingTimeout)
 	defer cancel()
 
 	if status := p.Redis.Client.Ping(ctx); status.Err() != nil {
