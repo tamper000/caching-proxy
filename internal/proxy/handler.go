@@ -45,7 +45,7 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		sendFinal(w, cache, cacheHit, logger)
+		sendFinal(w, cache, cacheBypass, logger)
 		return
 	}
 
@@ -82,11 +82,6 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error("Set cache error", "error", err)
 	} else {
 		logger.Debug("Successfully setting a value in redis", "key", key)
-	}
-
-	if blacklisted {
-		sendFinal(w, cache, cacheBypass, logger)
-		return
 	}
 
 	sendFinal(w, cache, cacheMiss, logger)
