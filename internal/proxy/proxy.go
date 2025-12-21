@@ -16,9 +16,17 @@ import (
 	ratelimit "github.com/tamper000/rate-limit-redis"
 )
 
+type RedisClient interface {
+	Flush(ctx context.Context) error
+	GetCache(key string) (*models.CacheEntry, error)
+	Ping(ctx context.Context) error
+	SetCache(key string, cacheEntry *models.CacheEntry) error
+	Close() error
+}
+
 type Proxy struct {
 	Config     *models.Config
-	Redis      *cache.RedisClient
+	Redis      RedisClient
 	HttpClient *http.Client
 	server     *http.Server
 	Blacklist  []*regexp.Regexp
@@ -76,11 +84,11 @@ func (p *Proxy) Stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	p.server.Shutdown(ctx)
+	_ = p.server.Shutdown(ctx)
 	p.StopOther()
 }
 
 func (p *Proxy) StopOther() {
-	p.Redis.Client.Close()
+	_ = p.Redis.Close()
 	logger.CloseFile()
 }

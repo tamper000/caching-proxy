@@ -31,7 +31,7 @@ func NewCache(config models.Redis) (*RedisClient, error) {
 	return &RedisClient{Client: rdb, TTL: config.TTL}, nil
 }
 
-func (r RedisClient) GetCache(key string) (*models.CacheEntry, error) {
+func (r *RedisClient) GetCache(key string) (*models.CacheEntry, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
@@ -48,7 +48,7 @@ func (r RedisClient) GetCache(key string) (*models.CacheEntry, error) {
 	return cache, nil
 }
 
-func (r RedisClient) SetCache(key string, cacheEntry *models.CacheEntry) error {
+func (r *RedisClient) SetCache(key string, cacheEntry *models.CacheEntry) error {
 	value, err := cacheEntry.MarshalBinary()
 	if err != nil {
 		return err
@@ -59,4 +59,16 @@ func (r RedisClient) SetCache(key string, cacheEntry *models.CacheEntry) error {
 
 	err = r.Client.Set(ctx, key, value, r.TTL).Err()
 	return err
+}
+
+func (r *RedisClient) Flush(ctx context.Context) error {
+	return r.Client.FlushDB(ctx).Err()
+}
+
+func (r *RedisClient) Ping(ctx context.Context) error {
+	return r.Client.Ping(ctx).Err()
+}
+
+func (r *RedisClient) Close() error {
+	return r.Client.Close()
 }
