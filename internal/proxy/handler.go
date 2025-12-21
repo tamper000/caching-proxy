@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -40,30 +41,50 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	logger := getRequestLogger(r)
 	logger.Info("New incoming request")
 
-	var blacklisted bool
 	for _, re := range p.Blacklist {
 		if re.MatchString(path) {
-			blacklisted = true
 			logger.Debug("Blacklisted path")
-			continue
-		}
-	}
 
-	if blacklisted {
-		cache, err := p.fetchFromOrigin(r, path, logger)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			v, err, _ := p.group.Do(key, func() (any, error) {
+				cache, err := p.fetchFromOrigin(r, path, logger)
+				if err != nil {
+					return nil, err
+				}
+
+				return cache, nil
+			})
+			if err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
+			cache, ok := v.(*models.CacheEntry)
+			if !ok {
+				logger.Error("Type assertion failed with cacheEntry", "actual", fmt.Sprintf("%T", v))
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
+			sendFinal(w, cache, cacheBypass, logger)
 			return
 		}
-		sendFinal(w, cache, cacheBypass, logger)
-		return
 	}
 
 	redisLogger := logger.With("key", key)
 	redisLogger.Debug("Get cache from redis")
-	cache, err := p.Redis.GetCache(key)
+	v, err, _ := p.group.Do(key, func() (any, error) {
+		return p.Redis.GetCache(key)
+	})
 	if err == nil {
 		redisLogger.Debug("Value found in redis")
+
+		cache, ok := v.(*models.CacheEntry)
+		if !ok {
+			logger.Error("Type assertion failed with cacheEntry", "actual", fmt.Sprintf("%T", v))
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
 		sendFinal(w, cache, cacheHit, logger)
 		return
 	}
@@ -73,7 +94,7 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		redisLogger.Error("Error in redis", "error", err)
 	}
 
-	v, err, _ := p.group.Do(key, func() (any, error) {
+	v, err, _ = p.group.Do(key, func() (any, error) {
 		cache, err := p.fetchFromOrigin(r, path, logger)
 		if err != nil {
 			return nil, err
@@ -95,6 +116,7 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	cache, ok := v.(*models.CacheEntry)
 	if !ok {
+		logger.Error("Type assertion failed with cacheEntry", "actual", fmt.Sprintf("%T", v))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -107,7 +129,6 @@ func (p *Proxy) fetchFromOrigin(r *http.Request, path string, logger *slog.Logge
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, p.Config.Origin+path, r.Body)
 	if err != nil {
 		logger.Error("Error forward request", "error", err)
-		// http.Error(w, "Error forward request", http.StatusInternalServerError)
 		return nil, err
 	}
 	safeSetHeaders(req, r.Header)
@@ -116,7 +137,6 @@ func (p *Proxy) fetchFromOrigin(r *http.Request, path string, logger *slog.Logge
 	resp, err := p.HttpClient.Do(req)
 	if err != nil {
 		logger.Error("Error reading response", "error", err)
-		// http.Error(w, "Error reading response", http.StatusInternalServerError)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -184,6 +204,7 @@ func (p *Proxy) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := p.Redis.Ping(ctx); err != nil {
+		slog.Error("Redis ping failure")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
