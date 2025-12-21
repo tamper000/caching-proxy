@@ -38,7 +38,7 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	key := p.Config.Origin + ":" + r.Method + ":" + path
 	logger := getRequestLogger(r)
-	logger.Info("New incoming requst")
+	logger.Info("New incoming request")
 
 	var blacklisted bool
 	for _, re := range p.Blacklist {
@@ -167,7 +167,7 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), redisFlushTimeout)
 	defer cancel()
 
-	if err := p.Redis.Client.FlushDB(ctx).Err(); err != nil {
+	if err := p.Redis.Flush(ctx); err != nil {
 		logger.Error("Unsuccessful clearing of cache")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
@@ -183,7 +183,7 @@ func (p *Proxy) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), redisPingTimeout)
 	defer cancel()
 
-	if status := p.Redis.Client.Ping(ctx); status.Err() != nil {
+	if err := p.Redis.Ping(ctx); err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
