@@ -38,16 +38,22 @@ func TestProxy_Stop(t *testing.T) {
 	p := NewProxy(cfg, rdb)
 
 	srvErr := make(chan error, 1)
+
 	go func() { srvErr <- p.Start() }()
 
 	for range 50 {
-		if _, err := http.Get("http://localhost:19284/health"); err == nil {
+		resp, err := http.Get("http://localhost:19284/health")
+		if err == nil {
 			break
 		}
+
+		_ = resp.Body.Close()
+
 		time.Sleep(50 * time.Millisecond)
 	}
 
 	p.Stop()
+
 	select {
 	case err := <-srvErr:
 		assert.ErrorIs(t, err, http.ErrServerClosed)

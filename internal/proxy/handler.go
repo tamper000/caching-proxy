@@ -1,12 +1,10 @@
 package proxy
 
 import (
-	"context"
+	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/redis/go-redis/v9"
@@ -15,9 +13,6 @@ import (
 )
 
 const (
-	redisPingTimeout  = time.Second * 2
-	redisFlushTimeout = time.Second * 5
-
 	maxRequestBodySize  = 8<<20 + 1
 	maxResponseBodySize = 15<<20 + 1
 )
@@ -30,8 +25,8 @@ const (
 
 func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
-
 	path := r.RequestURI
+
 	if !validatePath(path) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -41,39 +36,15 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	logger := getRequestLogger(r)
 	logger.Info("New incoming request")
 
-	for _, re := range p.Blacklist {
-		if re.MatchString(path) {
-			logger.Debug("Blacklisted path")
-
-			v, err, _ := p.group.Do(key, func() (any, error) {
-				cache, err := p.fetchFromOrigin(r, path, logger)
-				if err != nil {
-					return nil, err
-				}
-
-				return cache, nil
-			})
-			if err != nil {
-				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-				return
-			}
-
-			cache, ok := v.(*models.CacheEntry)
-			if !ok {
-				logger.Error("Type assertion failed with cacheEntry", "actual", fmt.Sprintf("%T", v))
-				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-				return
-			}
-
-			sendFinal(w, cache, cacheBypass, logger)
-			return
-		}
+	if p.isBlacklisted(path) {
+		p.blacklistedHandler(w, r, key, path, logger)
 	}
 
 	redisLogger := logger.With("key", key)
 	redisLogger.Debug("Get cache from redis")
+
 	v, err, _ := p.group.Do(key, func() (any, error) {
-		return p.Redis.GetCache(key)
+		return p.Redis.GetCache(r.Context(), key)
 	})
 	if err == nil {
 		redisLogger.Debug("Value found in redis")
@@ -81,14 +52,21 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		cache, ok := v.(*models.CacheEntry)
 		if !ok {
 			logger.Error("Type assertion failed with cacheEntry", "actual", fmt.Sprintf("%T", v))
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			http.Error(
+				w,
+				http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError,
+			)
+
 			return
 		}
 
 		sendFinal(w, cache, cacheHit, logger)
+
 		return
 	}
-	if err == redis.Nil {
+
+	if errors.Is(err, redis.Nil) {
 		redisLogger.Debug("Key not found in redis")
 	} else {
 		redisLogger.Error("Error in redis", "error", err)
@@ -100,7 +78,7 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 
-		err = p.Redis.SetCache(key, cache)
+		err = p.Redis.SetCache(r.Context(), key, cache)
 		if err != nil {
 			logger.Error("Set cache error", "error", err)
 		} else {
@@ -110,62 +88,28 @@ func (p *Proxy) ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		return cache, nil
 	})
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
+		)
+
 		return
 	}
 
 	cache, ok := v.(*models.CacheEntry)
 	if !ok {
 		logger.Error("Type assertion failed with cacheEntry", "actual", fmt.Sprintf("%T", v))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
+		)
+
 		return
 	}
 
 	sendFinal(w, cache, cacheMiss, logger)
-}
-
-func (p *Proxy) fetchFromOrigin(r *http.Request, path string, logger *slog.Logger) (*models.CacheEntry, error) {
-	logger.Debug("Initializing request to origin")
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, p.Config.Origin+path, r.Body)
-	if err != nil {
-		logger.Error("Error forward request", "error", err)
-		return nil, err
-	}
-	safeSetHeaders(req, r.Header)
-
-	logger.Debug("Send request to origin")
-	resp, err := p.HttpClient.Do(req)
-	if err != nil {
-		logger.Error("Error reading response", "error", err)
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
-	if err != nil {
-		return nil, err
-	}
-
-	cache := &models.CacheEntry{
-		Status: resp.StatusCode,
-		Header: resp.Header.Clone(),
-		Body:   body,
-	}
-
-	return cache, nil
-
-}
-func sendFinal(w http.ResponseWriter, cache *models.CacheEntry, header string, logger *slog.Logger) {
-	logger.Info("Request completed", "status", cache.Status, "cache", header)
-	w.Header().Set("X-Cache", header)
-	for key, value := range cache.Header {
-		for _, v := range value {
-			w.Header().Add(key, v)
-		}
-	}
-
-	w.WriteHeader(cache.Status)
-	w.Write(cache.Body)
 }
 
 func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
@@ -180,32 +124,29 @@ func (p *Proxy) ClearHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil || p.Config.Secret != secret {
 		logger.Error("Authentication failure")
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
+		_, _ = w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
+
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), redisFlushTimeout)
-	defer cancel()
-
-	if err := p.Redis.Flush(ctx); err != nil {
+	if err := p.Redis.Flush(r.Context()); err != nil {
 		logger.Error("Unsuccessful clearing of cache")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		_, _ = w.Write([]byte(err.Error()))
+
 		return
 	}
 
 	logger.Info("Successfully clearing the cache")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http.StatusText(http.StatusOK)))
+	_, _ = w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
 func (p *Proxy) HealthHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(context.Background(), redisPingTimeout)
-	defer cancel()
-
-	if err := p.Redis.Ping(ctx); err != nil {
+	if err := p.Redis.Ping(r.Context()); err != nil {
 		slog.Error("Redis ping failure")
 		w.WriteHeader(http.StatusServiceUnavailable)
+
 		return
 	}
 

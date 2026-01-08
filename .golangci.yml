@@ -1,0 +1,40 @@
+version: "2"
+
+linters:
+  default: fast
+  enable:
+    - bodyclose
+    # - contextcheck
+    - err113
+    - gochecknoglobals
+    - gosec
+    # - noctx
+    - mnd
+    - nlreturn
+    - whitespace
+    # - wrapcheck
+    - wsl_v5
+    - canonicalheader
+    - dupl
+    - funlen
+    - lll
+
+  disable:
+    - errcheck
+    - wsl
+    - depguard
+    - nlreturn
+
+run:
+  timeout: "1m"
+  issues-exit-code: 1
+  allow-parallel-runners: true
+  allow-serial-runners: false
+
+output:
+  show-stats: false
+  formats:
+    text:
+      path: ""
+    json:
+      path: "stdout"

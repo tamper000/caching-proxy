@@ -26,7 +26,7 @@ func NewLogger(config models.Logger) {
 	if config.File == "" {
 		file = os.Stdout
 	} else {
-		logFile, err := os.OpenFile(config.File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		logFile, err := os.OpenFile(config.File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			slog.Error("File could not be opened", "error", err)
 			os.Exit(1)

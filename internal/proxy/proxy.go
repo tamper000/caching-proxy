@@ -8,19 +8,25 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"golang.org/x/sync/singleflight"
-
 	"github.com/tamper000/caching-proxy/internal/cache"
 	"github.com/tamper000/caching-proxy/internal/logger"
 	"github.com/tamper000/caching-proxy/internal/models"
 	ratelimit "github.com/tamper000/rate-limit-redis"
+	"golang.org/x/sync/singleflight"
+)
+
+const (
+	defaultMaxIdlePerConn  = 100
+	defaultIdleTimeout     = 30 * time.Second
+	defaultRWTimeout       = 10 * time.Second
+	defaultShutdownTimeout = 5 * time.Second
 )
 
 type RedisClient interface {
-	Flush(ctx context.Context) error
-	GetCache(key string) (*models.CacheEntry, error)
+	GetCache(ctx context.Context, key string) (*models.CacheEntry, error)
+	SetCache(ctx context.Context, key string, cacheEntry *models.CacheEntry) error
 	Ping(ctx context.Context) error
-	SetCache(key string, cacheEntry *models.CacheEntry) error
+	Flush(ctx context.Context) error
 	Close() error
 }
 
@@ -50,10 +56,11 @@ func NewProxy(config *models.Config, redis *cache.RedisClient) *Proxy {
 	cfg.HttpClient = &http.Client{
 		Timeout: time.Duration(config.Timeout) * time.Second,
 		Transport: &http.Transport{
-			MaxIdleConnsPerHost: 100,
-			IdleConnTimeout:     30 * time.Second,
+			MaxIdleConnsPerHost: defaultMaxIdlePerConn,
+			IdleConnTimeout:     defaultIdleTimeout,
 		},
 	}
+
 	return cfg
 }
 
@@ -72,8 +79,8 @@ func (p *Proxy) Start() error {
 	server := &http.Server{
 		Addr:         ":" + p.Config.Port,
 		Handler:      r,
-		ReadTimeout:  time.Second * 10,
-		WriteTimeout: time.Second * 10,
+		ReadTimeout:  defaultRWTimeout,
+		WriteTimeout: defaultRWTimeout,
 	}
 	p.server = server
 
@@ -81,7 +88,7 @@ func (p *Proxy) Start() error {
 }
 
 func (p *Proxy) Stop() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultShutdownTimeout)
 	defer cancel()
 
 	_ = p.server.Shutdown(ctx)
@@ -90,5 +97,6 @@ func (p *Proxy) Stop() {
 
 func (p *Proxy) StopOther() {
 	_ = p.Redis.Close()
+
 	logger.CloseFile()
 }

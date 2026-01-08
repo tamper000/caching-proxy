@@ -5,10 +5,16 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-
 	internalErrors "github.com/tamper000/caching-proxy/internal/errors"
 	"github.com/tamper000/caching-proxy/internal/models"
 	"github.com/tamper000/caching-proxy/internal/utils"
+)
+
+const (
+	defaultTimeout  = 10
+	defaultRate     = 20
+	defaultDuration = 60
+	defaultTTL      = 5
 )
 
 func LoadConfig() (*models.Config, error) {
@@ -16,6 +22,7 @@ func LoadConfig() (*models.Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
+
 	err := viper.ReadInConfig()
 	if err != nil {
 		return nil, err
@@ -24,7 +31,7 @@ func LoadConfig() (*models.Config, error) {
 	// Server section
 	server := viper.Sub("server")
 	server.SetDefault("port", "8080")
-	server.SetDefault("timeout", 10)
+	server.SetDefault("timeout", defaultTimeout)
 
 	origin := server.GetString("origin")
 	if origin == "" {
@@ -67,8 +74,8 @@ func LoadConfig() (*models.Config, error) {
 
 func loadRateLimit() models.RateLimit {
 	ratelimit := viper.Sub("server.ratelimit")
-	ratelimit.SetDefault("rate", 20)
-	ratelimit.SetDefault("duration", 60)
+	ratelimit.SetDefault("rate", defaultRate)
+	ratelimit.SetDefault("duration", defaultDuration)
 
 	return models.RateLimit{
 		Rate:     ratelimit.GetInt("rate"),
@@ -81,7 +88,7 @@ func loadRedis() models.Redis {
 	redis.SetDefault("port", "6379")
 	redis.SetDefault("db", "0")
 	redis.SetDefault("addr", "localhost")
-	redis.SetDefault("TTL", 5)
+	redis.SetDefault("TTL", defaultTTL)
 
 	return models.Redis{
 		Port:     redis.GetString("port"),

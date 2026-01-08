@@ -5,9 +5,10 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-
 	"github.com/tamper000/caching-proxy/internal/models"
 )
+
+const defaultTimeout = time.Second * 5
 
 type RedisClient struct {
 	Client *redis.Client
@@ -21,7 +22,7 @@ func NewCache(config models.Redis) (*RedisClient, error) {
 		DB:       config.DB,
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
@@ -31,10 +32,7 @@ func NewCache(config models.Redis) (*RedisClient, error) {
 	return &RedisClient{Client: rdb, TTL: config.TTL}, nil
 }
 
-func (r *RedisClient) GetCache(key string) (*models.CacheEntry, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
+func (r *RedisClient) GetCache(ctx context.Context, key string) (*models.CacheEntry, error) {
 	bytes, err := r.Client.Get(ctx, key).Bytes()
 	if err != nil {
 		return nil, err
@@ -48,16 +46,14 @@ func (r *RedisClient) GetCache(key string) (*models.CacheEntry, error) {
 	return cache, nil
 }
 
-func (r *RedisClient) SetCache(key string, cacheEntry *models.CacheEntry) error {
+func (r *RedisClient) SetCache(ctx context.Context, key string, cacheEntry *models.CacheEntry) error {
 	value, err := cacheEntry.MarshalBinary()
 	if err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
 	err = r.Client.Set(ctx, key, value, r.TTL).Err()
+
 	return err
 }
 
