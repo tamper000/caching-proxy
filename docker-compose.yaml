@@ -12,7 +12,7 @@ services:
       - ./app.log:/app/app.log
 
   redis:
-    image: redis:7.4.7-alpine
+    image: redis:8.4.0-alpine
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
