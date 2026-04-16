@@ -1,6 +1,6 @@
 module github.com/tamper000/caching-proxy
 
-go 1.24.4
+go 1.25.0
 
 require (
 	github.com/bytedance/sonic v1.15.0
@@ -10,7 +10,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tamper000/rate-limit-redis v0.1.0
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.20.0
 )
 
 require (
